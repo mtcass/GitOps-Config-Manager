@@ -36,7 +36,7 @@ func NewGitHubClient(token, owner, repo string) *GitHubClient {
 
 // ListConfigFiles lists all JSON configuration files in the specified directory
 func (g *GitHubClient) ListConfigFiles(dirPath string) ([]ConfigFile, error) {
-	_, directoryContent, _, err := g.client.Repositories.GetContent(g.ctx, g.owner, g.repo, dirPath, &github.RepositoryContentGetOptions{})
+	_, directoryContent, _, err := g.client.Repositories.GetContents(g.ctx, g.owner, g.repo, dirPath, &github.RepositoryContentGetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get directory content from github: %w", err)
 	}
@@ -56,7 +56,7 @@ func (g *GitHubClient) ListConfigFiles(dirPath string) ([]ConfigFile, error) {
 
 // GetConfigFile fetches the content of a single configuration file
 func (g *GitHubClient) GetConfigFile(filePath string) (*ConfigFile, error) {
-	fileContent, _, _, err := g.client.Repositories.GetContent(g.ctx, g.owner, g.repo, filePath, &github.RepositoryContentGetOptions{})
+	fileContent, _, _, err := g.client.Repositories.GetContents(g.ctx, g.owner, g.repo, filePath, &github.RepositoryContentGetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file content: %w", err)
 	}
