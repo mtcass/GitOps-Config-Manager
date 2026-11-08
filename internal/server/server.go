@@ -25,6 +25,8 @@ func (s *Server) Start() error {
 
 	// Register HTTP routes
 	mux.HandleFunc("GET /", s.handleDashboard)
+	mux.HandleFunc("GET /openapi.yaml", s.handleOpenAPIYAML)
+	mux.HandleFunc("GET /docs", s.handleSwaggerUI)
 	mux.HandleFunc("GET /api/configs", s.handleListConfigs)
 
 	addr := fmt.Sprintf(":%s", s.cfg.Port)

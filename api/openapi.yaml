@@ -1,0 +1,96 @@
+openapi: 3.0.3
+info:
+  title: GitOps Config Manager API
+  description: Generic API for configuration management via GitOps (Git as a Single Source of Truth).
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local Development Server
+paths:
+  /api/configs:
+    get:
+      summary: List all configuration files
+      description: Returns the list of tracked configuration file paths in the configured Git repository directory.
+      responses:
+        '200':
+          description: Configuration file paths successfully retrieved.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: configs/production.json
+
+  /api/configs/content:
+    get:
+      summary: Read configuration file content
+      description: Returns the raw content of a specific configuration file in the repository.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          example: configs/production.json
+      responses:
+        '200':
+          description: File content successfully retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  path:
+                    type: string
+                  content:
+                    type: string
+        '400':
+          description: Missing or invalid path parameter.
+        '500':
+          description: Error fetching file from the Git provider.
+
+  /api/configs/commit:
+    post:
+      summary: Create changes and open a Pull Request (GitOps)
+      description: Creates a new branch, commits modifications to a configuration file, and automatically opens a Pull Request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+                - content
+                - commit_message
+                - pr_title
+              properties:
+                path:
+                  type: string
+                  example: configs/production.json
+                content:
+                  type: string
+                  example: "{\n  \"env\": \"production\",\n  \"replicas\": 5\n}"
+                commit_message:
+                  type: string
+                  example: "feat: update production replicas to 5"
+                pr_title:
+                  type: string
+                  example: "Update Production Replicas"
+      responses:
+        '201':
+          description: Branch created, file committed, and Pull Request successfully opened.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  pr_url:
+                    type: string
+        '400':
+          description: Invalid payload in request body.
+        '500':
+          description: Error executing the GitOps workflow.
