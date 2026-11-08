@@ -1,8 +1,10 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // handleDashboard renders the main HTML shell of the application
@@ -48,38 +50,70 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html))
 }
 
-// handleListConfigs fetches files from provider and returns an HTML snippet for HTMX
-func (s *Server) handleListConfigs(w http.ResponseWriter, r *http.Request) {
+// handleOpenAPIYAML serves the raw OpenAPI specification file
+func (s *Server) handleOpenAPIYAML(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/x-yaml; charset=utf-8")
+	// Lê o arquivo openapi.yaml diretamente do diretório api/
+	http.ServeFile(w, r, "api/openapi.yaml")
+}
+
+// handleSwaggerUI renders the Swagger UI interface page
+func (s *Server) handleSwaggerUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Call our Git client to list files
+	html := `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GitOps Config Manager - API Docs</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+</head>
+<body style="margin: 0; background: #fafafa;">
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+    <script>
+        window.onload = () => {
+            window.ui = SwaggerUIBundle({
+                url: '/openapi.yaml',
+                dom_id: '#swagger-ui',
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIBundle.StandalonePreset
+                ],
+            });
+        };
+    </script>
+</body>
+</html>`
+
+	w.Write([]byte(html))
+}
+
+// handleListConfigs fetches files from Git provider and returns a clean array of relative filenames
+func (s *Server) handleListConfigs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
 	files, err := s.client.ListConfigFiles(s.cfg.ConfigDirPath)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, `<div class="text-sm text-red-400 bg-red-950/50 border border-red-900 p-3 rounded-lg">Failed to load files: %v</div>`, err)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("failed to list configuration files: %v", err),
+		})
 		return
 	}
 
-	if len(files) == 0 {
-		fmt.Fprint(w, `<div class="text-sm text-slate-500 italic">No configuration files found in the repository.</div>`)
-		return
+	// Remove config dir prefix (CONFIG_DIR_PATH) from the file name
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+
+		relPath := strings.TrimPrefix(f.Path, s.cfg.ConfigDirPath)
+		relPath = strings.TrimLeft(relPath, "/")
+
+		if relPath != "" {
+			paths = append(paths, relPath)
+		}
 	}
 
-	// Render a clean list of files as HTML snippet
-	html := `<div class="divide-y divide-slate-800 border border-slate-800 rounded-lg overflow-hidden bg-slate-950">`
-	for _, file := range files {
-		html += fmt.Sprintf(`
-			<div class="p-4 flex items-center justify-between hover:bg-slate-900/50 transition">
-				<div>
-					<span class="font-medium text-slate-200">%s</span>
-					<div class="text-xs text-slate-500 mt-0.5">SHA: %s</div>
-				</div>
-				<button class="px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition">
-					Edit File
-				</button>
-			</div>`, file.Path, file.SHA)
-	}
-	html += `</div>`
-
-	w.Write([]byte(html))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(paths)
 }
